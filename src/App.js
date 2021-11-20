@@ -27,29 +27,74 @@ export default class App extends Component {
     }
 
     async sttFromMic() {
-        const tokenObj = await getTokenOrRefresh();
-        const speechConfig = speechsdk.SpeechConfig.fromAuthorizationToken(tokenObj.authToken, tokenObj.region);
-        speechConfig.speechRecognitionLanguage = 'en-US';
-        
-        const audioConfig = speechsdk.AudioConfig.fromDefaultMicrophoneInput();
-        const recognizer = new speechsdk.SpeechRecognizer(speechConfig, audioConfig);
-
         this.setState({
-            displayText: 'speak into your microphone...'
+            displayText: ''
         });
 
-        recognizer.recognizeOnceAsync(result => {
-            let displayText;
-            if (result.reason === ResultReason.RecognizedSpeech) {
-                displayText = `RECOGNIZED: Text=${result.text}`
+        const authorizationToken = await getTokenOrRefresh();
+        const speechConfiguration = speechsdk.SpeechConfig.fromAuthorizationToken(authorizationToken.authToken, authorizationToken.region);
+        speechConfiguration.outputFormat = speechsdk.OutputFormat.Detailed;
+        speechConfiguration.speechRecognitionLanguage = 'en-US';
+        
+        // const audioConfig = speechsdk.AudioConfig.fromDefaultMicrophoneInput();
+        const audioConfiguration = speechsdk.AudioConfig.fromMicrophoneInput('{0.0.1.00000000}.{7dce2a65-219b-4a2d-920a-e1bac0531bf0}');
+        const speechRecognizer = new speechsdk.SpeechRecognizer(speechConfiguration, audioConfiguration);
+
+        this.setState({
+            displayText: 'speak into your microphone...\n'
+        });
+
+        // recognizer.recognizeOnceAsync(result => {
+        //     let displayText;
+        //     if (result.reason === ResultReason.RecognizedSpeech) {
+        //         displayText = `RECOGNIZED: Text=${result.text}`
+        //     } else {
+        //         displayText = 'ERROR: Speech was cancelled or could not be recognized. Ensure your microphone is working properly.';
+        //     }
+
+        //     this.setState({
+        //         displayText: displayText
+        //     });
+        // });
+
+        speechRecognizer.recognizing = (sender, eventArgs) => {
+            let message;
+            message = `Recognizing ${eventArgs.result.text}`
+            this.setState({
+                displayText: `${this.state.displayText}${message}\n`
+            });
+        };
+
+        speechRecognizer.canceled = (sender, eventArgs) => {
+            let message;
+            message = `Cancelled reason ${eventArgs.reason}`
+            this.setState({
+                displayText: `${this.state.displayText}${message}\n`
+            });
+        };
+
+        speechRecognizer.recognized = (sender, eventArgs) => {
+            let message;
+            if (eventArgs.result.reason === speechsdk.ResultReason.NoMatch) {
+                message = `I didn't recognize the text`;
             } else {
-                displayText = 'ERROR: Speech was cancelled or could not be recognized. Ensure your microphone is working properly.';
+                message = `Recognized ${eventArgs.result.text}\n`;
+                message += `Additional Details\n\n`;
+                eventArgs.result.best().forEach((additionalDetails) => {
+                    message += `Text ${additionalDetails.text}\n`;
+                    message += `Confidence ${additionalDetails.confidence}\n`;
+                    message += `LexicalForm ${additionalDetails.lexicalForm}\n`;
+                    message += `NormalizedForm ${additionalDetails.normalizedForm}\n`;
+                    message += `MaskedNormalizedForm ${additionalDetails.maskedNormalizedForm}\n`;
+                });
             }
 
             this.setState({
-                displayText: displayText
+                displayText: `${this.state.displayText}${message}\n`
             });
-        });
+        };
+
+        speechRecognizer.startContinuousRecognitionAsync();
     }
 
     async fileChange(event) {
@@ -103,8 +148,9 @@ export default class App extends Component {
                             Convert speech to text from an audio file.
                         </div>
                     </div>
-                    <div className="col-6 output-display rounded">
-                        <code>{this.state.displayText}</code>
+                    <div className="col-6">
+                        <textarea rows="25" cols="100" className="output-display rounded" value={this.state.displayText}>
+                        </textarea>
                     </div>
                 </div>
             </Container>
