@@ -41,56 +41,46 @@ export default class App extends Component {
         const speechRecognizer = new speechsdk.SpeechRecognizer(speechConfiguration, audioConfiguration);
 
         this.setState({
-            displayText: 'speak into your microphone...\n'
+            displayText: 'Speak into your microphone...\n'
         });
 
-        // recognizer.recognizeOnceAsync(result => {
-        //     let displayText;
-        //     if (result.reason === ResultReason.RecognizedSpeech) {
-        //         displayText = `RECOGNIZED: Text=${result.text}`
-        //     } else {
-        //         displayText = 'ERROR: Speech was cancelled or could not be recognized. Ensure your microphone is working properly.';
-        //     }
-
-        //     this.setState({
-        //         displayText: displayText
-        //     });
-        // });
-
         speechRecognizer.recognizing = (sender, eventArgs) => {
-            let message;
-            message = `Recognizing ${eventArgs.result.text}`
+            var recognizingMessage = `Recognizing ${eventArgs.result.text}`
             this.setState({
-                displayText: `${this.state.displayText}${message}\n`
-            });
-        };
-
-        speechRecognizer.canceled = (sender, eventArgs) => {
-            let message;
-            message = `Cancelled reason ${eventArgs.reason}`
-            this.setState({
-                displayText: `${this.state.displayText}${message}\n`
+                displayText: `${this.state.displayText}${recognizingMessage}\n`
             });
         };
 
         speechRecognizer.recognized = (sender, eventArgs) => {
-            let message;
             if (eventArgs.result.reason === speechsdk.ResultReason.NoMatch) {
-                message = `I didn't recognize the text`;
-            } else {
-                message = `Recognized ${eventArgs.result.text}\n`;
-                message += `Additional Details\n\n`;
-                eventArgs.result.best().forEach((additionalDetails) => {
-                    message += `Text ${additionalDetails.text}\n`;
-                    message += `Confidence ${additionalDetails.confidence}\n`;
-                    message += `LexicalForm ${additionalDetails.lexicalForm}\n`;
-                    message += `NormalizedForm ${additionalDetails.normalizedForm}\n`;
-                    message += `MaskedNormalizedForm ${additionalDetails.maskedNormalizedForm}\n`;
-                });
-            }
+                var notMatchedMessage = `I didn't recognize the text`;
 
+                this.setState({
+                    displayText: `${this.state.displayText}${notMatchedMessage}\n`
+                });
+            } else {
+                var results = JSON.parse(eventArgs.result.json)['NBest'];
+                var matchedMessage = `Recognized ${eventArgs.result.text}\n`;
+                matchedMessage += `Additional Details\n\n`;
+
+                results.forEach((additionalDetails) => {
+                    matchedMessage += `Text ${additionalDetails.Display}\n`;
+                    matchedMessage += `Confidence ${additionalDetails.Confidence}\n`;
+                    matchedMessage += `LexicalForm ${additionalDetails.Lexical}\n`;
+                    matchedMessage += `NormalizedForm ${additionalDetails.ITN}\n`;
+                    matchedMessage += `MaskedNormalizedForm ${additionalDetails.MaskedITN}\n`;
+                });
+
+                this.setState({
+                    displayText: `${this.state.displayText}${matchedMessage}\n`
+                });                
+            }
+        };
+        
+        speechRecognizer.canceled = (sender, eventArgs) => {
+            var cancelledMessage = `Cancelled reason ${eventArgs.reason}`
             this.setState({
-                displayText: `${this.state.displayText}${message}\n`
+                displayText: `${this.state.displayText}${cancelledMessage}\n`
             });
         };
 
