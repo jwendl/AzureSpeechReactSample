@@ -3,12 +3,33 @@ const express = require('express');
 const axios = require('axios');
 const bodyParser = require('body-parser');
 const pino = require('express-pino-logger')();
+const https = require('https');
+const fs = require('fs');
+const cors = require('cors');
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(pino);
+app.use(cors());
+
+const options = {
+    key: fs.readFileSync('certificates/server_key'),
+    cert: fs.readFileSync('certificates/server_cert'),
+    ca: fs.readFileSync('certificates/server_cert'),
+    requestCert: true,                
+    rejectUnauthorized: false
+};
 
 app.get('/api/get-speech-token', async (req, res, next) => {
+    if (!req.client.authorized) {
+        return res.status(401).send('Device is not authorized');
+    }
+
+    const certificate = req.socket.getPeerCertificate();
+    if (certificate.subject) {
+        console.log(`Common Name: ${certificate.subject.CN}`);
+    }
+
     res.setHeader('Content-Type', 'application/json');
     const speechKey = process.env.SPEECH_KEY;
     const speechRegion = process.env.SPEECH_REGION;
@@ -32,6 +53,6 @@ app.get('/api/get-speech-token', async (req, res, next) => {
     }
 });
 
-app.listen(3001, () =>
+https.createServer(options, app).listen(3001, () => {
     console.log('Express server is running on localhost:3001')
-);
+});
